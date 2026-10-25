@@ -1,0 +1,31 @@
+{
+  "runs": 140,
+  "seconds": 2.5,
+  "map": "synthetic potato trial",
+  "best_gsd_2_5": {
+    "alt": 40,
+    "fwd": 70,
+    "dir": "L",
+    "n": 5,
+    "completed_all": true,
+    "mean_s": 64.78000000000051,
+    "sd_s": 3.6506163863105754,
+    "min_cover_pct": 99.87254901960785,
+    "mean_wh": 3.7156882909092497,
+    "mean_captures": 10.6,
+    "gsd_cm": 2.1164021164021167
+  },
+  "best_gsd_2_0": {
+    "alt": 30,
+    "fwd": 70,
+    "dir": "S",
+    "n": 5,
+    "completed_all": true,
+    "mean_s": 172.95999999999447,
+    "sd_s": 17.88247745699582,
+    "min_cover_pct": 99.66666666666667,
+    "mean_wh": 9.3155997208939,
+    "mean_captures": 47.2,
+    "gsd_cm": 1.5873015873015877
+  }
+}
