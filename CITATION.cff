@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use this software or the accompanying report, please cite it as below."
+title: "Drone Scout: provenance-aware agricultural UAV survey simulation"
+type: software
+version: 1.0.0
+date-released: 2026-10-25
+license: MIT
+repository-code: "https://github.com/ArvindKC22/drone-scout"
+abstract: >-
+  Interactive browser simulator, Python package and technical report for
+  planning and flying simulated agricultural UAV surveys with wind, GNSS noise,
+  an empirical battery model and footprint-hit coverage.
+keywords: [uav, agriculture, simulation, survey planning, coverage, reproducibility]
+authors:
+  - alias: "ArvindKC22"

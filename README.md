@@ -184,6 +184,15 @@ Known limits, taken from the report and this re-implementation: touched-cell cov
 
 Natural next steps: area-exact and overlap-aware coverage, held-out seeds for setting selection, importing logged flights to calibrate the power model, and adaptive capture density driven by target uncertainty.
 
-## License
+## Licences, attribution and related projects
 
-Code is released under the [MIT License](LICENSE). The technical report and third-party datasets keep their own authorship and terms.
+| Part | Licence |
+|---|---|
+| Source code (`dronescout/`, `web/`, `tests/`, `scripts/`) | [MIT](LICENSE) |
+| Documentation, report text, original and generated figures | [CC BY 4.0](LICENSE-DOCS.md) |
+| ADD256 imagery visible in report figures | CC BY-NC 4.0 (Embrapa): attribution required, non-commercial only |
+| Third-party datasets and software (FIELDimageR, CoFly-WeedDB, CADI-AI, WebODM, DJI specifications) | Their own terms; **not bundled**. See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) |
+
+Related open-source projects for physical validation (PX4, ArduPilot, QGroundControl, Gazebo, WebODM, FIELDimageR) are in [`docs/RELATED_PROJECTS.md`](docs/RELATED_PROJECTS.md). Citation metadata is in [`CITATION.cff`](CITATION.cff) and [`docs/REFERENCES.bib`](docs/REFERENCES.bib).
+
+*DJI and Phantom are trademarks of SZ DJI Technology Co., Ltd. This project is not affiliated with, endorsed by or sponsored by DJI, OpenDroneMap, Embrapa, KaraAgro or any dataset author.*
