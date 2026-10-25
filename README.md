@@ -62,7 +62,7 @@ What you can do in it:
 ### Python
 
 ```bash
-git clone https://github.com/<your-username>/drone-scout.git
+git clone https://github.com/ArvindKC22/drone-scout.git
 cd drone-scout
 pip install -e .            # needs numpy; add ".[plots]" for matplotlib figures
 
