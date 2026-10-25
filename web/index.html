@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Drone Scout Flight Lab</title>
+<meta name="description" content="Interactive UAV agricultural survey simulator: plan a lawn-mower survey, fly it with wind and GNSS noise, watch battery, coverage and captures.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23161b22'/%3E%3Cpath d='M8 8l6 6M24 8l-6 6M8 24l6-6M24 24l-6-6' stroke='%2364d2a0' stroke-width='2.4' stroke-linecap='round'/%3E%3Crect x='13' y='13' width='6' height='6' rx='1.5' fill='%23f2994a'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#0e1319;--panel:#151c24;--panel2:#1b242e;--line:#27323e;--fg:#e6edf3;--mut:#8b98a7;--acc:#f2994a;--ok:#64d2a0;--blue:#58a6ff;--bad:#ff6b6b;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media(prefers-color-scheme:light){:root:not([data-theme=dark]){--bg:#f3f5f7;--panel:#fff;--panel2:#f0f3f6;--line:#d8dee4;--fg:#1f2933;--mut:#5f6b78;--acc:#c2570c;--ok:#1a7f4b;--blue:#0969da;--bad:#cf222e}}
+:root[data-theme=light]{--bg:#f3f5f7;--panel:#fff;--panel2:#f0f3f6;--line:#d8dee4;--fg:#1f2933;--mut:#5f6b78;--acc:#c2570c;--ok:#1a7f4b;--blue:#0969da;--bad:#cf222e}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
+h1{font-size:18px;margin:0;letter-spacing:.2px}h1 small{color:var(--mut);font-weight:400;font-size:12px;margin-left:8px}
+.badge{font:11px var(--mono);padding:4px 9px;border:1px solid var(--acc);color:var(--acc);border-radius:999px}
+main{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:14px;padding:14px 16px;max-width:1400px;margin:0 auto}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+.card h2{font:600 11px var(--mono);letter-spacing:.8px;text-transform:uppercase;color:var(--mut);margin:0 0 10px}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px}
+button,select{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:7px 11px;font:inherit;cursor:pointer}
+button:hover{border-color:var(--mut)}button:disabled{opacity:.45;cursor:default}
+button.primary{background:var(--acc);border-color:var(--acc);color:#101418;font-weight:600}
+button.on{border-color:var(--acc);color:var(--acc)}
+.mapwrap{position:relative;background:#0a0f14;border-radius:8px;border:1px solid var(--line);overflow:hidden}
+#map{display:block;width:100%;height:min(74vh,760px)}
+.hud{position:absolute;left:10px;top:10px;font:12px var(--mono);color:#e6edf3;background:#0b1117cc;padding:6px 9px;border-radius:6px;pointer-events:none}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;color:var(--mut);font-size:12px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.stat{background:var(--panel2);border-radius:8px;padding:8px 10px}
+.stat b{display:block;font:600 19px var(--mono)}.stat span{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
+.ctl{display:grid;grid-template-columns:110px 1fr 54px;gap:8px;align-items:center;margin:7px 0}
+.ctl label{font-size:12px;color:var(--mut)}.ctl output{font:12px var(--mono);text-align:right}
+input[type=range]{width:100%;accent-color:var(--acc)}
+.plan{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;font:12px var(--mono)}.plan span{color:var(--mut)}
+#log{height:150px;overflow:auto;font:12px var(--mono);background:var(--panel2);border-radius:8px;padding:8px;color:var(--mut)}
+#log div b{color:var(--ok);font-weight:400}
+canvas#chart{width:100%;height:110px;display:block}
+table{width:100%;border-collapse:collapse;font:12px var(--mono)}th,td{padding:5px 6px;text-align:right;border-bottom:1px solid var(--line)}th{color:var(--mut);font-weight:400}
+td.best,tr.best td{color:var(--ok);font-weight:700}
+.note{font-size:12px;color:var(--mut);margin:8px 0 0}
+a{color:var(--blue)}
+.row2{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+dialog{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:12px;max-width:640px;width:calc(100% - 32px)}
+dialog::backdrop{background:#0009}
+</style>
+</head>
+<body>
+<header>
+  <h1>Drone Scout <span style="color:var(--acc)">Flight Lab</span><small>agricultural survey simulator</small></h1>
+  <div class="row2"><span class="badge">SIMULATION · NO HARDWARE</span><button id="about">About &amp; limits</button><button id="theme" aria-label="Toggle theme">◐</button></div>
+</header>
+<main>
+  <section>
+    <div class="card">
+      <div class="bar">
+        <button class="primary" id="start">Start simulation</button>
+        <button id="pause" disabled>Pause</button>
+        <button id="reset">Reset</button>
+        <button id="rth" disabled>Return home</button>
+        <span style="flex:1"></span>
+        <span style="color:var(--mut);font-size:12px">Time warp</span>
+        <span id="warp" class="row2"></span>
+      </div>
+      <div class="mapwrap"><canvas id="map"></canvas><div class="hud" id="hud">READY</div></div>
+      <div class="legend">
+        <span><i style="background:#2c8a45"></i>captured (canopy sample)</span>
+        <span><i style="background:transparent;border:1px solid var(--fg)"></i>camera footprint</span>
+        <span><i style="background:var(--blue)"></i>flown path</span>
+        <span><i style="background:var(--acc)"></i>capture points</span>
+        <span><i style="background:transparent;border:1px dashed #9fb3c8"></i>planned route</span>
+        <span><i style="background:#ffd24a"></i>home</span>
+      </div>
+      <p class="note">Map pixels are <b>synthetic</b> canopy rasters. Position, speed, battery, wind, GNSS error and trigger times are <b>simulated</b>. Same equations as the technical report; deterministic for a given seed.</p>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h2>Power draw &amp; battery · last 3 minutes</h2>
+      <canvas id="chart"></canvas>
+    </div>
+  </section>
+  <aside style="display:flex;flex-direction:column;gap:14px">
+    <div class="card">
+      <h2>Live telemetry</h2>
+      <div class="stats">
+        <div class="stat"><span>State</span><b id="s_state" style="font-size:14px">Ready</b></div>
+        <div class="stat"><span>Time</span><b id="s_time">0:00</b></div>
+        <div class="stat"><span>Altitude</span><b id="s_alt">0.0 m</b></div>
+        <div class="stat"><span>Ground speed</span><b id="s_gs">0.0 m/s</b></div>
+        <div class="stat"><span>Battery</span><b id="s_bat">100.0 %</b></div>
+        <div class="stat"><span>Power</span><b id="s_pow">0 W</b></div>
+        <div class="stat"><span>Captures</span><b id="s_cap">0</b></div>
+        <div class="stat"><span>Coverage</span><b id="s_cov">0.0 %</b></div>
+        <div class="stat"><span>Track RMS</span><b id="s_rms">–</b></div>
+        <div class="stat"><span>Energy used</span><b id="s_wh">0.00 Wh</b></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Survey setup</h2>
+      <div class="ctl"><label for="preset">Map</label><select id="preset" style="grid-column:2/4"></select></div>
+      <div id="ctls"></div>
+      <div class="ctl"><label for="dir">Lane direction</label><select id="dir" style="grid-column:2/4"><option value="0">Along the long side</option><option value="1">Along the short side</option></select></div>
+      <div class="row2" style="margin-top:6px"><label><input type="checkbox" id="swap"> Swap battery &amp; resume after low-battery return</label></div>
+      <div class="row2" style="margin-top:8px"><button id="cfgshare">Copy settings link</button><button id="csv" disabled>Download capture CSV</button></div>
+    </div>
+    <div class="card">
+      <h2>Plan estimate</h2>
+      <div class="plan" id="plan"></div>
+    </div>
+    <div class="card">
+      <h2>Event log</h2>
+      <div id="log"></div>
+    </div>
+    <div class="card">
+      <h2>Settings sweep</h2>
+      <div class="row2"><button id="sweep">Run sweep (24 settings × 3 seeds)</button><span id="sweepst" style="color:var(--mut);font-size:12px"></span></div>
+      <p class="note" style="margin-top:6px">Picks the fastest setting that completes every seed with ≥99% coverage and a nominal GSD ceiling, as in the report.</p>
+      <div class="ctl" style="grid-template-columns:110px 1fr 54px"><label for="gsdmax">GSD ceiling</label><input type="range" id="gsdmax" min="1.5" max="3.5" step="0.1" value="2.5"><output id="gsdmaxo">2.5</output></div>
+      <div id="sweepout"></div>
+    </div>
+  </aside>
+</main>
+<dialog id="dlg">
+  <h3 style="margin-top:0">About this simulator</h3>
+  <p>Drone Scout Flight Lab implements the survey-planning, point-mass flight, battery and coverage equations from the <i>Drone Scout Technical Thesis Report</i> in the browser.</p>
+  <ul>
+    <li><b>Real vs simulated:</b> map rasters here are generated procedurally; the report used historical orthomosaic derivatives. Aircraft motion, battery, wind, GNSS and capture timing are simulated.</li>
+    <li><b>Not a digital twin.</b> Power and controller constants are uncalibrated assumptions, not flight-log fits. Do not use for flight authorisation.</li>
+    <li><b>Coverage</b> is a footprint-hit estimate on a 0.5 m grid, not image-overlap or photogrammetric quality.</li>
+    <li>Random draws use a JS PRNG, so numbers differ slightly from the Python package for the same seed.</li>
+  </ul>
+  <form method="dialog"><button class="primary">Close</button></form>
+</dialog>
+<script>
+"use strict";
+/* ============================== parameters ============================== */
+const AC={mass:1.487,cap:5870,vnom:15.2,vmax:14,vup:6,vdown:3,acc:3,dec:3,tau:.7,zacc:3,yawr:90,px:1600,py:1300,gsdk:18.9,tmin:2,kp:.8,ki:.05,phov:165,pload:12,kv:.004,eta:.85,rthres:15,crit:10,vtr:8,gtau:5,gnssTau:15,dt:.1,cell:.5,home:[-5,-5],gate:.8,maxSteps:60000};
+AC.emax=AC.cap*AC.vnom/1000;
+const CTL=[["alt","Altitude (m)",10,80,1,30],["fwd","Forward overlap (%)",50,95,1,80],["side","Side overlap (%)",50,95,1,70],["wind","Mean wind (m/s)",0,12,.5,3],["wdir","Wind from (°)",0,355,5,270],["gust","Gust SD (m/s)",0,3,.1,.8],["gnss","GNSS SD (m)",0,3,.05,.75],["start","Start battery (%)",15,100,1,100],["seed","Seed",1,99,1,7]];
+const cfg={dir:0,swap:false};CTL.forEach(c=>cfg[c[0]]=c[5]);
+/* ============================== PRNG ============================== */
+function rng(seed){let a=seed>>>0||1;const u=()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296};
+  return {u,n(){let x=0;while(!x)x=u();return Math.sqrt(-2*Math.log(x))*Math.cos(2*Math.PI*u())}}}
+/* ============================== maps ============================== */
+const PRESETS={
+ potato:{name:"Potato trial · 29.8 × 84.6 m",w:29.846,h:84.618,gen(r,X,Y){const b=Array.from({length:14},()=>.25+.7*r.u());const lv=b[Math.floor(Y/7)]*(.85+.15*Math.sin(X/9));const rows=.55+.45*Math.cos(2*Math.PI*X/.9)**2;return 100*(lv*rows+.06*r.n())}},
+ orchard:{name:"Orchard block · 60 × 45 m",w:60,h:45,gen(r,X,Y){const dx=((X%6)+6)%6-3,dy=((Y%5)+5)%5-2.5;const crown=Math.max(0,1-Math.hypot(dx/2.3,dy/2.0));return 100*(.12+.8*Math.min(1,crown*1.5)*(.7+.3*Math.sin(X/11+Y/17))+.04*r.n())}},
+ field:{name:"Row-crop field · 90 × 60 m",w:90,h:60,gen(r,X,Y){const rows=.5+.5*Math.cos(2*Math.PI*Y/.75)**2;const wet=Math.exp(-(((X-60)/14)**2+((Y-25)/10)**2));return 100*((.8-.55*wet)*(.6+.4*rows)*(.8+.2*Math.sin(X/20))+.05*r.n())}}
+};
+function makeField(key){const P=PRESETS[key],c=AC.cell,nx=Math.ceil(P.w/c),ny=Math.ceil(P.h/c),r=rng(2026);
+  const v=new Float32Array(nx*ny);for(let j=0;j<ny;j++)for(let i=0;i<nx;i++)v[j*nx+i]=Math.max(0,Math.min(100,Math.round(P.gen(r,(i+.5)*c,(j+.5)*c))));
+  const W=nx+1,sat=new Float64Array((nx+1)*(ny+1));for(let j=0;j<ny;j++){let row=0;for(let i=0;i<nx;i++){row+=v[j*nx+i];sat[(j+1)*W+i+1]=sat[j*W+i+1]+row}}
+  return {key,name:P.name,w:P.w,h:P.h,c,nx,ny,v,sat,W};}
+function bounds(F,x0,x1,y0,y1){return[Math.max(0,Math.floor(x0/F.c)),Math.min(F.nx-1,Math.floor(x1/F.c)),Math.max(0,Math.floor(y0/F.c)),Math.min(F.ny-1,Math.floor(y1/F.c))]}
+function sample(F,x0,x1,y0,y1){const[i0,i1,j0,j1]=bounds(F,x0,x1,y0,y1);if(i1<i0||j1<j0)return NaN;const W=F.W,s=F.sat;const sum=s[(j1+1)*W+i1+1]-s[j0*W+i1+1]-s[(j1+1)*W+i0]+s[j0*W+i0];return sum/((i1-i0+1)*(j1-j0+1))/100}
+function dataFrac(F,x0,x1,y0,y1){const ox=Math.max(0,Math.min(x1,F.w)-Math.max(x0,0)),oy=Math.max(0,Math.min(y1,F.h)-Math.max(y0,0));return ox*oy/((x1-x0)*(y1-y0))}
+/* ============================== planner (Eqs 1-4, 17) ============================== */
+const gsdM=h=>h/(100*AC.gsdk);
+function plan(c,F){const g=gsdM(c.alt),fw=AC.px*g,fl=AC.py*g,sp=Math.max(.01,fw*(1-c.side/100)),dF=Math.max(.01,fl*(1-c.fwd/100));
+  const long=Math.max(F.w,F.h),short=Math.min(F.w,F.h),alongLong=c.dir==0,across=alongLong?short:long,L=alongLong?long:short;
+  let n,cs=[];if(across<=fw){n=1;cs=[across/2]}else{n=Math.ceil((across-fw)/sp)+1;const st=(across-fw)/(n-1);for(let i=0;i<n;i++)cs.push(fw/2+i*st)}
+  const portrait=F.h>=F.w,alongY=(portrait===alongLong),wps=[];
+  cs.forEach((q,i)=>{const[a,b]=i%2?[L,0]:[0,L];if(alongY){wps.push([q,a],[q,b])}else{wps.push([a,q],[b,q])}});
+  const vs=Math.min(AC.vmax,dF/(1.05*AC.tmin)),pts=[AC.home,...wps,AC.home];let tot=0;for(let i=0;i<pts.length-1;i++)tot+=Math.hypot(pts[i+1][0]-pts[i][0],pts[i+1][1]-pts[i][1]);
+  const lane=n*L,trans=tot-lane,photos=n*(Math.floor(L/dF)+1),est=lane/vs+trans/AC.vtr+3*n+4*AC.vmax/AC.dec+1.3*c.alt/AC.vup+1.2*c.alt/AC.vdown;
+  return{n,fw,fl,sp,dF,vs,wps,total:tot,photos,est,gsd:g*100,L,across}}
+/* ============================== simulation core ============================== */
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const pw=(a,vz)=>AC.pload+AC.phov*(1+AC.kv*a*a)+AC.mass*9.81*Math.max(vz,0)/AC.eta;
+class Sim{
+  constructor(c,F,record=true){this.c={...c};this.F=F;this.P=plan(c,F);this.record=record;this.r=rng(c.seed*7919+13);
+    const dt=AC.dt;this.ag=Math.exp(-dt/AC.gtau);this.an=Math.exp(-dt/AC.gnssTau);this.sg=c.gust*Math.sqrt(1-this.ag**2);this.sn=c.gnss*Math.sqrt(1-this.an**2);
+    const tw=(c.wdir+180)*Math.PI/180;this.wm=[c.wind*Math.sin(tw),-c.wind*Math.cos(tw)];
+    this.segs=[];let prev=AC.home;for(let i=0;i<this.P.wps.length;i+=2){const s=this.P.wps[i],e=this.P.wps[i+1];this.segs.push([prev[0],prev[1],s[0],s[1],"transit"],[s[0],s[1],e[0],e[1],"lane"]);prev=e}
+    this.segs.push([prev[0],prev[1],AC.home[0],AC.home[1],"return"]);
+    this.E=AC.emax*c.start/100;this.x=AC.home[0];this.y=AC.home[1];this.z=0;this.vx=this.vy=this.vz=0;this.gx=this.gy=this.nx=this.ny=0;this.yaw=0;this.I=0;
+    this.phase="idle";this.si=0;this.resume=null;this.swaps=0;this.t=0;this.used=0;this.dist=0;this.since=Infinity;this.lastCap=-1e9;this.caps=[];this.e2=0;this.e2n=0;
+    this.hit=new Uint8Array(F.nx*F.ny);this.nHit=0;this.gs=0;this.P_=0;this.kind=null;this.outcome=null;this.log=[];this.hist=[];this.path=[[this.x,this.y]];this.nextRec=0;this.manualRTH=false;this.steps=0;this.newHits=[];
+  }
+  get soc(){return 100*this.E/AC.emax}
+  get cov(){return 100*this.nHit/(this.F.nx*this.F.ny)}
+  get rms(){return this.e2n?Math.sqrt(this.e2/this.e2n):NaN}
+  ev(m){this.log.push([this.t,m])}
+  start(){this.phase="takeoff";this.ev("Mission start · "+this.P.n+" lane"+(this.P.n>1?"s":"")+" · "+this.P.photos+" photos planned · survey "+this.P.vs.toFixed(1)+" m/s")}
+  rth(){if(this.phase==="fly"&&this.segs[this.si][4]!=="return")this.manualRTH=true}
+  retEnergy(px,py,pz){const d=Math.hypot(px-AC.home[0],py-AC.home[1]);return(d/AC.vtr*pw(AC.vtr,0)+(1.2*pz/AC.vdown+10)*pw(0,0))/3600}
+  get done(){return this.outcome!==null}
+  step(){
+    if(this.done||this.phase==="idle")return;const c=this.c,dt=AC.dt,r=this.r;
+    this.gx=this.ag*this.gx+this.sg*r.n();this.gy=this.ag*this.gy+this.sg*r.n();this.nx=this.an*this.nx+this.sn*r.n();this.ny=this.an*this.ny+this.sn*r.n();
+    const mx=this.x+this.nx,my=this.y+this.ny,soc=this.soc;let tz=c.alt;
+    if(this.phase==="takeoff"){if(this.z>=c.alt-AC.gate){this.phase="fly";this.ev("Reached survey altitude · transit to first lane")}}
+    else if(this.phase==="land"||this.phase==="emergency")tz=-.3;
+    if(this.phase==="fly"&&this.z>c.alt-2*AC.gate){
+      const isRet=this.segs[this.si][4]==="return";
+      if(soc<=AC.crit){this.phase="emergency";this.ev("CRITICAL battery · emergency landing")}
+      else if(!isRet&&(this.manualRTH||this.E<=1.1*this.retEnergy(mx,my,this.z)+AC.rthres/100*AC.emax)){
+        this.resume=(c.swap&&!this.manualRTH&&this.swaps<5)?this.si:null;
+        this.ev(this.manualRTH?"Return home commanded":"Battery reserve reached · returning home"+(this.resume!==null?" (will swap & resume)":""));
+        this.si=this.segs.length-1;this.segs[this.si]=[mx,my,AC.home[0],AC.home[1],"return"];this.I=0;this.lowBat=!this.manualRTH;this.manualRTH=false;this.manualEnd=true}
+    }
+    let vgx=0,vgy=0,kind=null;
+    if(this.phase==="fly"){
+      const[ax,ay,bx,by,k]=this.segs[this.si];kind=k;const lx=bx-ax,ly=by-ay,ln=Math.hypot(lx,ly)||1,tx=lx/ln,ty=ly/ln,nxv=-ty,nyv=tx;
+      if(k==="lane"){const e=(mx-ax)*nxv+(my-ay)*nyv,d=(bx-mx)*tx+(by-my)*ty,u=clamp(-AC.kp*e-AC.ki*this.I,-3,3);this.I=clamp(this.I+e*dt,-8,8);
+        let v=Math.min(this.P.vs,Math.sqrt(2*AC.dec*Math.abs(d)));if(d<0)v=-Math.min(v,1);vgx=v*tx+u*nxv;vgy=v*ty+u*nyv;this.e2+=e*e;this.e2n++}
+      else{const dx=bx-mx,dy=by-my,d=Math.hypot(dx,dy),v=Math.min(AC.vtr,Math.sqrt(2*AC.dec*d));if(d>1e-6){vgx=v*dx/d;vgy=v*dy/d}}
+      if(Math.hypot(bx-mx,by-my)<1){this.I=0;if(k==="return"){this.phase="land";this.ev("Over home · landing")}else{this.si++;if(this.segs[this.si][4]==="lane")this.ev("Lane "+(Math.floor(this.si/2)+1)+" started");}}
+    }else if(this.phase==="land"){const dx=AC.home[0]-mx,dy=AC.home[1]-my,d=Math.hypot(dx,dy),v=Math.min(2,Math.sqrt(2*AC.dec*d));if(d>1e-6){vgx=v*dx/d;vgy=v*dy/d}}
+    let vzd=clamp(tz-this.z,-AC.vdown,AC.vup);if(this.phase==="emergency")vzd=-AC.vdown;
+    this.vz+=clamp((vzd-this.vz)/.5,-AC.zacc,AC.zacc)*dt;
+    const vdx=vgx-this.wm[0],vdy=vgy-this.wm[1];let acx=(vdx-this.vx)/AC.tau,acy=(vdy-this.vy)/AC.tau;const am=Math.hypot(acx,acy);if(am>AC.acc){acx*=AC.acc/am;acy*=AC.acc/am}
+    this.vx+=acx*dt;this.vy+=acy*dt;let sa=Math.hypot(this.vx,this.vy);if(sa>AC.vmax){this.vx*=AC.vmax/sa;this.vy*=AC.vmax/sa;sa=AC.vmax}
+    const gvx=this.vx+this.wm[0]+this.gx,gvy=this.vy+this.wm[1]+this.gy;this.x+=gvx*dt;this.y+=gvy*dt;this.z+=this.vz*dt;
+    const gs=Math.hypot(gvx,gvy);this.gs=gs;this.dist+=gs*dt;this.since+=gs*dt;
+    if(gs>.3){const ty=Math.atan2(gvx,-gvy)*180/Math.PI;const dy=((ty-this.yaw+540)%360)-180;this.yaw+=clamp(dy,-AC.yawr*dt,AC.yawr*dt);this.yaw=((this.yaw+540)%360)-180}
+    if(this.z<=0){this.z=0;if(this.vz<0)this.vz=0}
+    const ground=(this.phase==="land"||this.phase==="emergency")&&this.z<=.05;
+    const Pw=ground?0:pw(sa,this.vz);this.P_=Pw;const dE=Pw*dt/3600;this.E=Math.max(0,this.E-dE);this.used+=dE;this.t+=dt;this.steps++;
+    if(this.phase==="fly"&&kind==="lane"&&Math.abs(this.z-c.alt)<=AC.gate&&this.since>=this.P.dF&&this.t-this.lastCap>=AC.tmin){
+      const s=this.segs[this.si],alongY=Math.abs(s[3]-s[1])>=Math.abs(s[2]-s[0]),hx=alongY?this.P.fw:this.P.fl,hy=alongY?this.P.fl:this.P.fw;
+      const x0=this.x-hx/2,x1=this.x+hx/2,y0=this.y-hy/2,y1=this.y+hy/2,F=this.F,[i0,i1,j0,j1]=bounds(F,x0,x1,y0,y1);
+      for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const k=j*F.nx+i;if(!this.hit[k]){this.hit[k]=1;this.nHit++;if(this.record)this.newHits.push(k)}}
+      this.caps.push({id:this.caps.length+1,t:this.t,x:this.x,y:this.y,z:this.z,yaw:this.yaw,gx:mx,gy:my,gs,bat:this.soc,fw:hx,fl:hy,gsd:this.P.gsd,df:dataFrac(F,x0,x1,y0,y1),can:sample(F,x0,x1,y0,y1),cov:this.cov,x0,x1,y0,y1});
+      this.since=0;this.lastCap=this.t;if(this.record&&this.caps.length%10===0)this.ev(this.caps.length+" captures · coverage "+this.cov.toFixed(1)+"%")}
+    if(this.record&&this.t>=this.nextRec){this.hist.push([this.t,Pw,this.soc]);this.path.push([this.x,this.y]);this.nextRec+=1}
+    this.kind=kind;
+    if((this.phase==="land"||this.phase==="emergency")&&this.z<=.05){
+      if(this.phase==="land"&&this.resume!==null){this.swaps++;this.E=AC.emax;const[ax,ay]=this.segs[this.resume];this.segs[this.segs.length-1]=[ax,ay,AC.home[0],AC.home[1],"return"];this.segs.splice(this.resume,0,[AC.home[0],AC.home[1],ax,ay,"transit"]);this.si=this.resume;this.resume=null;this.phase="takeoff";this.since=Infinity;this.x=AC.home[0];this.y=AC.home[1];this.vx=this.vy=this.vz=0;this.lowBat=false;this.manualEnd=false;this.ev("Battery swapped · resuming survey");return}
+      this.z=0;this.outcome=this.phase==="emergency"?"emergency landing":(this.lowBat||this.manualEnd)?(this.lowBat?"landed (low battery)":"landed (returned home)"):"mission complete";this.ev(this.outcome[0].toUpperCase()+this.outcome.slice(1)+" · "+this.caps.length+" captures · coverage "+this.cov.toFixed(1)+"%");
+    }
+    if(this.steps>=AC.maxSteps&&!this.done){this.outcome="timeout"}
+  }
+  state(){return this.phase==="idle"?"Ready":this.done?this.outcome:this.phase==="takeoff"?"Takeoff":this.phase==="land"?"Landing":this.phase==="emergency"?"Emergency":this.kind==="lane"?"Surveying":this.kind==="return"?"Returning home":"Transit"}
+  csv(){const h="id,t_s,x_m,y_m,alt_m,yaw_deg,gnss_x_m,gnss_y_m,ground_speed_ms,battery_pct,footprint_w_m,footprint_l_m,gsd_cm,data_fraction,canopy,coverage_pct,mode,telemetry_source,metric_source";
+    const f=(v,d)=>Number(v).toFixed(d);return h+"\n"+this.caps.map(q=>[q.id,f(q.t,1),f(q.x,2),f(q.y,2),f(q.z,2),f(q.yaw,0),f(q.gx,2),f(q.gy,2),f(q.gs,2),f(q.bat,2),f(q.fw,2),f(q.fl,2),f(q.gsd,3),f(q.df,3),f(q.can,4),f(q.cov,2),"simulation","simulated","synthetic canopy sample"].join(",")).join("\n")+"\n"}
+}
+/* ============================== UI ============================== */
+const $=id=>document.getElementById(id);
+let F=makeField("potato"),sim=null,running=false,warp=16,acc=0,last=0;
+const canvas=$("map"),ctx=canvas.getContext("2d");let view={s:1,ox:0,oy:0},base=null,capC=null,capImg=null,drawnHits=0;
+function colorFor(v){const t=v/100;return[Math.round(168-146*t),Math.round(132+10*t),Math.round(92-32*t)]}
+function buildMapImages(){const c=document.createElement("canvas");c.width=F.nx;c.height=F.ny;const g=c.getContext("2d"),im=g.createImageData(F.nx,F.ny);
+  for(let i=0;i<F.v.length;i++){const[r,gg,b]=colorFor(F.v[i]);im.data[i*4]=r;im.data[i*4+1]=gg;im.data[i*4+2]=b;im.data[i*4+3]=255}g.putImageData(im,0,0);base=c;
+  capC=document.createElement("canvas");capC.width=F.nx;capC.height=F.ny;capImg=capC.getContext("2d").createImageData(F.nx,F.ny)}
+function fit(){const dpr=window.devicePixelRatio||1,r=canvas.getBoundingClientRect();canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);
+  const x0=-12,x1=F.w+8,y0=-12,y1=F.h+8,pad=14*dpr;view.s=Math.min((canvas.width-2*pad)/(x1-x0),(canvas.height-2*pad)/(y1-y0));view.ox=(canvas.width-view.s*(x1-x0))/2-x0*view.s;view.oy=(canvas.height-view.s*(y1-y0))/2-y0*view.s;view.dpr=dpr}
+const X=x=>view.ox+x*view.s,Y=y=>view.oy+y*view.s;
+function draw(){const g=ctx,s=view.s,d=view.dpr;g.clearRect(0,0,canvas.width,canvas.height);g.fillStyle="#0a0f14";g.fillRect(0,0,canvas.width,canvas.height);
+  g.imageSmoothingEnabled=false;g.globalAlpha=.22;g.drawImage(base,X(0),Y(0),F.w*s*(F.nx*F.c/F.w),F.h*s*(F.ny*F.c/F.h));g.globalAlpha=1;
+  if(sim){if(sim.newHits.length){for(const k of sim.newHits){const[r,gg,b]=colorFor(F.v[k]);capImg.data[k*4]=r;capImg.data[k*4+1]=gg;capImg.data[k*4+2]=b;capImg.data[k*4+3]=255}sim.newHits.length=0;capC.getContext("2d").putImageData(capImg,0,0)}
+    g.drawImage(capC,X(0),Y(0),F.nx*F.c*s,F.ny*F.c*s)}
+  g.strokeStyle="#ffffff55";g.lineWidth=1*d;g.strokeRect(X(0),Y(0),F.w*s,F.h*s);
+  const P=sim?sim.P:plan(cfg,F);g.setLineDash([5*d,5*d]);g.strokeStyle="#9fb3c8";g.lineWidth=1.2*d;g.beginPath();g.moveTo(X(AC.home[0]),Y(AC.home[1]));P.wps.forEach(w=>g.lineTo(X(w[0]),Y(w[1])));g.lineTo(X(AC.home[0]),Y(AC.home[1]));g.stroke();g.setLineDash([]);
+  if(sim){g.strokeStyle="#58a6ff";g.lineWidth=1.8*d;g.beginPath();sim.path.forEach((p,i)=>i?g.lineTo(X(p[0]),Y(p[1])):g.moveTo(X(p[0]),Y(p[1])));g.lineTo(X(sim.x),Y(sim.y));g.stroke();
+    g.fillStyle="#f2994a";sim.caps.forEach(q=>{g.beginPath();g.arc(X(q.x),Y(q.y),2.4*d,0,7);g.fill()});
+    if(sim.phase!=="idle"&&!sim.done&&sim.kind){const s2=sim.segs[sim.si],ay=Math.abs(s2[3]-s2[1])>=Math.abs(s2[2]-s2[0]),w=ay?P.fw:P.fl,h=ay?P.fl:P.fw;g.strokeStyle="#fff";g.lineWidth=1.4*d;g.strokeRect(X(sim.x-w/2),Y(sim.y-h/2),w*s,h*s)}}
+  const hx=X(AC.home[0]),hy=Y(AC.home[1]);g.fillStyle="#ffd24a";g.fillRect(hx-4*d,hy-4*d,8*d,8*d);g.font=`${10*d}px ui-monospace,monospace`;g.fillText("HOME",hx+8*d,hy+3*d);
+  const px=sim?sim.x:AC.home[0],py=sim?sim.y:AC.home[1],yaw=sim?sim.yaw:0,alt=sim?sim.z:0;
+  g.save();g.translate(X(px),Y(py));g.fillStyle="#00000055";g.beginPath();g.arc(alt*.12*d,alt*.12*d,7*d,0,7);g.fill();g.rotate(yaw*Math.PI/180);
+  g.strokeStyle="#e6edf3";g.lineWidth=2*d;g.beginPath();g.moveTo(-8*d,-8*d);g.lineTo(8*d,8*d);g.moveTo(8*d,-8*d);g.lineTo(-8*d,8*d);g.stroke();
+  g.fillStyle="#e6edf355";[[-8,-8],[8,-8],[-8,8],[8,8]].forEach(([a,b])=>{g.beginPath();g.arc(a*d,b*d,4.5*d,0,7);g.fill()});g.fillStyle="#f2994a";g.fillRect(-3*d,-3*d,6*d,6*d);g.fillStyle="#fff";g.fillRect(-1*d,-8*d,2*d,5*d);g.restore();
+  // wind arrow
+  const tw=(cfg.wdir+180)*Math.PI/180,wx=Math.sin(tw),wy=-Math.cos(tw),cx=canvas.width-40*d,cy=40*d;g.strokeStyle="#9fb3c8";g.fillStyle="#9fb3c8";g.lineWidth=2*d;g.beginPath();g.moveTo(cx-wx*16*d,cy-wy*16*d);g.lineTo(cx+wx*16*d,cy+wy*16*d);g.stroke();
+  g.beginPath();g.moveTo(cx+wx*20*d,cy+wy*20*d);g.lineTo(cx+wx*10*d-wy*5*d,cy+wy*10*d+wx*5*d);g.lineTo(cx+wx*10*d+wy*5*d,cy+wy*10*d-wx*5*d);g.fill();g.fillText(cfg.wind.toFixed(1)+" m/s",cx-22*d,cy+34*d)}
+const mmss=t=>Math.floor(t/60)+":"+String(Math.floor(t%60)).padStart(2,"0");
+function ui(){const q=sim,P=q?q.P:plan(cfg,F);
+  $("s_state").textContent=q?q.state():"Ready";$("s_time").textContent=mmss(q?q.t:0);$("s_alt").textContent=(q?q.z:0).toFixed(1)+" m";$("s_gs").textContent=(q?q.gs:0).toFixed(1)+" m/s";
+  $("s_bat").textContent=(q?q.soc:cfg.start).toFixed(1)+" %";$("s_pow").textContent=Math.round(q?q.P_:0)+" W";$("s_cap").textContent=q?q.caps.length:0;$("s_cov").textContent=(q?q.cov:0).toFixed(1)+" %";
+  $("s_rms").textContent=q&&q.e2n?q.rms.toFixed(2)+" m":"–";$("s_wh").textContent=(q?q.used:0).toFixed(2)+" Wh";
+  $("hud").textContent=(q?q.state():"READY").toUpperCase()+" · "+(q?mmss(q.t):"0:00");
+  const L=$("log");if(q){const n=q.log.length;if(L.dataset.n!=n||L.dataset.k!=q.id){L.innerHTML=q.log.map(e=>`<div><b>T+${mmss(e[0])}</b> ${e[1]}</div>`).join("");L.scrollTop=L.scrollHeight;L.dataset.n=n}}
+  $("start").disabled=running||(q&&q.phase!=="idle"&&!q.done);$("pause").disabled=!(q&&q.phase!=="idle"&&!q.done);$("pause").textContent=running||!q||q.done?"Pause":"Resume";$("rth").disabled=!(q&&q.phase==="fly"&&!q.done);$("csv").disabled=!(q&&q.caps.length)}
+function planUI(){const P=plan(cfg,F);$("plan").innerHTML=[["Lanes",P.n],["Photos",P.photos],["GSD",P.gsd.toFixed(2)+" cm/px"],["Footprint",P.fw.toFixed(1)+"×"+P.fl.toFixed(1)+" m"],["Lane spacing",P.sp.toFixed(1)+" m"],["Trigger spacing",P.dF.toFixed(1)+" m"],["Survey speed",P.vs.toFixed(2)+" m/s"],["Path length",P.total.toFixed(0)+" m"],["Est. time",mmss(P.est)],["Pack energy",AC.emax.toFixed(1)+" Wh"]].map(([a,b])=>`<div><span>${a}</span></div><div style="text-align:right">${b}</div>`).join("")}
+function reset(keepRunning){running=false;sim=null;acc=0;$("log").dataset.n="";$("log").innerHTML="";buildMapImages();fit();planUI();ui();draw()}
+function frame(ts){if(running&&sim&&!sim.done){const dt=Math.min(.1,(ts-last)/1000);acc+=dt*warp;let n=Math.floor(acc/AC.dt);acc-=n*AC.dt;n=Math.min(n,3000);while(n--&&!sim.done)sim.step();if(sim.done){running=false}}
+  last=ts;draw();ui();requestAnimationFrame(frame)}
+/* ---- build controls ---- */
+$("preset").innerHTML=Object.entries(PRESETS).map(([k,p])=>`<option value="${k}">${p.name}</option>`).join("");
+$("ctls").innerHTML=CTL.map(([k,l,a,b,st,v])=>`<div class="ctl"><label for="c_${k}">${l}</label><input type="range" id="c_${k}" min="${a}" max="${b}" step="${st}" value="${v}"><output id="o_${k}">${v}</output></div>`).join("");
+CTL.forEach(([k])=>$("c_"+k).addEventListener("input",e=>{cfg[k]=+e.target.value;$("o_"+k).textContent=cfg[k];reset();saveHash()}));
+$("dir").onchange=e=>{cfg.dir=+e.target.value;reset();saveHash()};$("swap").onchange=e=>{cfg.swap=e.target.checked;if(sim)sim.c.swap=cfg.swap};
+$("preset").onchange=e=>{F=makeField(e.target.value);reset();saveHash()};
+$("warp").innerHTML=[1,4,16,64].map(w=>`<button data-w="${w}" class="${w===warp?"on":""}">×${w}</button>`).join("");
+$("warp").onclick=e=>{const w=e.target.dataset.w;if(!w)return;warp=+w;[...$("warp").children].forEach(b=>b.classList.toggle("on",+b.dataset.w===warp))};
+$("start").onclick=()=>{if(!sim||sim.done){sim=new Sim(cfg,F);buildMapImages();$("log").dataset.n=""}sim.start();running=true;last=performance.now()};
+$("pause").onclick=()=>{if(sim&&!sim.done)running=!running};
+$("reset").onclick=()=>reset();$("rth").onclick=()=>sim&&sim.rth();
+$("csv").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([sim.csv()],{type:"text/csv"}));a.download=`dronescout-captures-seed${cfg.seed}.csv`;a.click()};
+$("about").onclick=()=>$("dlg").showModal();
+$("theme").onclick=()=>{const r=document.documentElement,dark=getComputedStyle(r).getPropertyValue("--bg").trim()==="#0e1319";r.dataset.theme=dark?"light":"dark"};
+/* ---- shareable settings ---- */
+function saveHash(){try{const p=new URLSearchParams({m:F.key,d:cfg.dir});CTL.forEach(([k])=>p.set(k,cfg[k]));history.replaceState(null,"","#"+p)}catch(e){}}
+$("cfgshare").onclick=()=>{saveHash();navigator.clipboard&&navigator.clipboard.writeText(location.href).then(()=>{$("cfgshare").textContent="Copied";setTimeout(()=>$("cfgshare").textContent="Copy settings link",1200)})};
+function loadHash(){try{const p=new URLSearchParams(location.hash.slice(1));if(p.get("m")&&PRESETS[p.get("m")]){F=makeField(p.get("m"));$("preset").value=p.get("m")}
+  CTL.forEach(([k,,a,b])=>{if(p.has(k)){cfg[k]=clamp(+p.get(k),a,b);$("c_"+k).value=cfg[k];$("o_"+k).textContent=cfg[k]}});if(p.has("d")){cfg.dir=+p.get("d")?1:0;$("dir").value=cfg.dir}}catch(e){}}
+/* ---- power/battery chart ---- */
+const ch=$("chart"),cg=ch.getContext("2d");
+function chart(){const d=window.devicePixelRatio||1,r=ch.getBoundingClientRect(),w=Math.round(r.width*d),h=Math.round(r.height*d);if(ch.width!==w||ch.height!==h){ch.width=w;ch.height=h}
+  cg.clearRect(0,0,w,h);const cs=getComputedStyle(document.documentElement),line=cs.getPropertyValue("--line"),mut=cs.getPropertyValue("--mut");cg.strokeStyle=line;cg.lineWidth=1;cg.fillStyle=mut;cg.font=`${10*d}px ui-monospace,monospace`;
+  for(let i=0;i<=4;i++){const y=6*d+(h-18*d)*i/4;cg.beginPath();cg.moveTo(30*d,y);cg.lineTo(w-34*d,y);cg.stroke();cg.fillText(String(400-100*i),0,y+3*d);cg.fillText(100-25*i+"%",w-30*d,y+3*d)}
+  if(!sim||sim.hist.length<2)return;const T1=sim.t,T0=Math.max(0,T1-180),px=t=>30*d+(w-64*d)*(t-T0)/Math.max(180,T1-T0),py=(v,m)=>6*d+(h-18*d)*(1-v/m);
+  const h2=sim.hist.filter(a=>a[0]>=T0);cg.lineWidth=1.6*d;cg.strokeStyle="#f2994a";cg.beginPath();h2.forEach((a,i)=>i?cg.lineTo(px(a[0]),py(a[1],400)):cg.moveTo(px(a[0]),py(a[1],400)));cg.stroke();
+  cg.strokeStyle="#64d2a0";cg.beginPath();h2.forEach((a,i)=>i?cg.lineTo(px(a[0]),py(a[2],100)):cg.moveTo(px(a[0]),py(a[2],100)));cg.stroke()}
+setInterval(chart,250);
+/* ---- sweep ---- */
+let sweepRows=null;
+$("gsdmax").oninput=e=>{$("gsdmaxo").textContent=(+e.target.value).toFixed(1);if(sweepRows)renderSweep()};
+$("sweep").onclick=()=>{const alts=[20,30,40,60],fwds=[70,80,90],seeds=[1,7,21],jobs=[];for(const a of alts)for(const f of fwds)for(const d of[0,1])jobs.push({a,f,d});sweepRows=[];$("sweep").disabled=true;let i=0;
+  const run=()=>{const t0=performance.now();while(i<jobs.length&&performance.now()-t0<30){const j=jobs[i++],res=seeds.map(s=>{const q=new Sim({...cfg,alt:j.a,fwd:j.f,dir:j.d,wind:cfg.wind,seed:s,swap:false},F,false);q.start();let n=0;while(!q.done&&n++<AC.maxSteps)q.step();return q});
+      const ok=res.every(q=>q.outcome==="mission complete"),m=res.reduce((s,q)=>s+q.t,0)/3,sd=Math.sqrt(res.reduce((s,q)=>s+(q.t-m)**2,0)/2),mc=Math.min(...res.map(q=>q.cov));
+      sweepRows.push({a:j.a,f:j.f,d:j.d,ok,m,sd,mc,wh:res.reduce((s,q)=>s+q.used,0)/3,gsd:res[0].P.gsd})}
+    $("sweepst").textContent=`${i}/${jobs.length}`;if(i<jobs.length)setTimeout(run,0);else{$("sweep").disabled=false;$("sweepst").textContent="done";renderSweep()}};run()};
+function renderSweep(){const mx=+$("gsdmax").value,rows=[...sweepRows].sort((a,b)=>a.m-b.m),best=rows.find(r=>r.ok&&r.mc>=99&&r.gsd<=mx);
+  $("sweepout").innerHTML=`<p class="note">${best?`Best for GSD ≤ ${mx.toFixed(1)} cm/px: <b style="color:var(--ok)">${best.a} m, ${best.f}% fwd, ${best.d?"short":"long"}-side lanes</b> · ${best.m.toFixed(1)} ± ${best.sd.toFixed(1)} s`:`No setting satisfies the criteria at GSD ≤ ${mx.toFixed(1)} cm/px`}</p>
+  <table><tr><th>Alt</th><th>Fwd</th><th>Dir</th><th>Mean s</th><th>Min cov</th><th>GSD</th></tr>${rows.slice(0,10).map(r=>`<tr class="${r===best?"best":""}"><td>${r.a}</td><td>${r.f}</td><td>${r.d?"S":"L"}</td><td>${r.m.toFixed(1)}</td><td>${r.mc.toFixed(1)}</td><td>${r.gsd.toFixed(2)}</td></tr>`).join("")}</table><p class="note">Top 10 of ${rows.length} by mean duration. Rows below 99% min coverage or not completing every seed are not eligible.</p>`}
+/* ---- init ---- */
+loadHash();buildMapImages();new ResizeObserver(()=>{fit();draw()}).observe(canvas);fit();planUI();ui();requestAnimationFrame(frame);
+window.__sim={Sim,plan,makeField,AC};   // for headless tests
+</script>
+</body>
+</html>
