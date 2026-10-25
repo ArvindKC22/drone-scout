@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dronescout"
+version = "1.0.0"
+description = "Provenance-aware agricultural UAV survey simulation: planner, flight model, battery and coverage."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = ["numpy>=1.22"]
+
+[project.optional-dependencies]
+plots = ["matplotlib>=3.5"]
+dev = ["pytest", "matplotlib>=3.5"]
+
+[project.scripts]
+dronescout = "dronescout.cli:main"
+
+[tool.setuptools]
+packages = ["dronescout"]
